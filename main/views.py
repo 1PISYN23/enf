@@ -29,9 +29,9 @@ class CatalogView(TemplateView):
 
     FILTER_MAPPING = {
         "color": lambda queryset, value: queryset.filter(color__iexact=value),
-        "min_price": lambda queryset, value: queryset.filter(price_gte=value),
-        "max_price": lambda queryset, value: queryset.filter(price_lte=value),
-        "size": lambda queryset, value: queryset.filter(product_size__size__name=value),
+        "min_price": lambda queryset, value: queryset.filter(price__gte=value),
+        "max_price": lambda queryset, value: queryset.filter(price__lte=value),
+        "size": lambda queryset, value: queryset.filter(product_sizes__size__name=value),
     }    
 
 
@@ -68,7 +68,7 @@ class CatalogView(TemplateView):
             "products": products,
             "current_category": category_slug,
             "filter_params": filter_params,
-            "sizes": Size.object.all(),
+            "sizes": Size.objects.all(),
             "search_query": query or "",
         })
 
@@ -82,17 +82,17 @@ class CatalogView(TemplateView):
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
-        if request.headers.get["HX-request"]:
+        if request.headers.get("HX-Request"):
             if context.get("show_search"):
                 return TemplateResponse(request, "main/search_input.html", context)
             elif context.get("reset_search"):
-                return TemplateResponse(request, "main/search_butto.html", {})
+                return TemplateResponse(request, "main/search_button.html", {})
             template = "main/filter_modal.html" if request.GET.get("show_filters") == "true" else "main/catalog.html"
             return TemplateResponse(request, template, context)
         return TemplateResponse(request, self.template_name, context)
 
 
-class ProductDetailView(TemplateView):
+class ProductDetailView(DetailView):
     model = Product
     template_name = "main/base.html"
     slug_field = "slug"
