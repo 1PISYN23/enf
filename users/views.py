@@ -92,3 +92,7 @@ def logout_view(request):
     if request.headers.get("HX-Request"):
         return HttpResponse(headers={"HX-Redirect": reverse("main:index")})
     return redirect("main:index")
+
+
+# Из-за того, что мы делаем на HTMX, то нам надо делать допольнительно account_details да? И если бы мы делали на обычном HTML, то account_details не надо было бы делать, 
+# а просто из edit_account_details сделали бы редирект на profile.html? 
