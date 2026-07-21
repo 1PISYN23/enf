@@ -38,7 +38,7 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     {{ form.first_name }}
-                    {% if form.first_name.errors %}  # это я так понимаю тоже встроенно просто в Django? Мы же просто в формах валидацию для first_name и тд не прописывали
+                    {% if form.first_name.errors %}  {% comment %} # это я так понимаю тоже встроенно просто в Django? Мы же просто в формах валидацию для first_name и тд не прописывали {% endcomment %}
                         <div class="text-red-500 text-xs mt-1">{{ form.first_name.errors }}</div>
                     {% endif %}
                 </div>

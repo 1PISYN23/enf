@@ -22,7 +22,7 @@ stripe_endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
 
 def create_stripe_checkout_session(order, request):
-    cart = CartMixin.get_cart(request)
+    cart = CartMixin().get_cart(request)
     line_items = []
     for item in cart.items.select_related("product", "product_size"):
         line_items.append({
@@ -31,14 +31,14 @@ def create_stripe_checkout_session(order, request):
                 "product_data": {
                     "name": f"{item.product.name} - {item.product_size.size.name}",
                 },
-                "unit_amount": int(item.product.size * 100),
+                "unit_amount": int(item.product.price * 100),
             },
             "quantity": item.quantity,
         })
     
     try:
         checkout_session = stripe.checkout.Session.create(
-            payment_method_data=["card"],
+            payment_method_types=["card"],
             line_items=line_items,
             mode="payment",
             success_url=request.build_absolute_uri("/payment/stripe/success/") + "?session_id={CHECKOUT_SESSION_ID}",  # Это что за конструкция? Встроенная? 
@@ -90,16 +90,16 @@ def stripe_success(request):
     if session_id:
         try:
             session = stripe.checkout.Session.retrieve(session_id)
-            order_id = session.metadata.get("order_id")
+            order_id = session.metadata["order_id"]
             order = get_object_or_404(Order, id=order_id)
 
-            cart = CartMixin.get_cart(request)
+            cart = CartMixin().get_cart(request)
             cart.clear()
 
-            context = {"order": order}
+            context = {"order": order} 
             if request.headers.get("HX-Request"):
                 return TemplateResponse(request, "payment/stripe_success_content.html", context)
-            return render(request, "payment/stripe_success", context)
+            return render(request, "payment/stripe_success.html", context)
         except Exception as e:
             raise
     return redirect("main:index")
