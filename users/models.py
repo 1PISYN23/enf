@@ -7,7 +7,7 @@ class CustomUserManager(BaseUserManager):
     def create_user(self, email, first_name, last_name, password=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set.")
-        email = self.normalize_email(email)
+        email = self.normalize_email(email)  # Приводит в рабочее состояние.
         user = self.model(email=email, first_name=first_name, last_name=last_name, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -36,21 +36,22 @@ class CustomUser(AbstractUser):
     country = models.CharField(max_length=100, blank=True, null=True)
     province = models.CharField(max_length=100, blank=True, null=True)
     postal_code = models.CharField(max_length=20, blank=True, null=True)
-    phone = models.CharField(max_length=150, unique=True, null=True, blank=True)
+    phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
 
-    username = CustomUserManager()  # вот тут чуть не понял, что оно передает? 
+    username = CustomUserManager()  # заменяет objects для создания новой логики авторизации, то есть у нас авторизация идет по email, а не по username и поэтому мы переопределили два метода в CustomUserManager
+    # то есть если бы надо было входить по username, то мы бы могли вообще не создавать CustomUserManager
 
-    USERNAME_FIELD = 'email'  # и тут что? типо мы указываем поле email которое мы прописали просто в переменную? и что было бы если бы был username? 
-    REQUIRED_FIELDS = ['first_name', 'last_name']  
+    USERNAME_FIELD = 'email'  # выполнять вход по email а не по username
+    REQUIRED_FIELDS = ['first_name', 'last_name']  # обязательны команды для createsuperuser
 
     
     def __str__(self):
         return self.email
     
 
-    def clean(self):   # что делает метод? Необходиом для того, чтобы пользователь мог вводить эти поля в профиле.
+    def clean(self):   # встроенный метод django, нужен для доп. валидации 
         for field in ['company', 'address1', 'address2', 'city',
                       'country', 'province', 'postal_code', 'phone']:
             value = getattr(self, field)
             if value:
-                setattr(self, field, strip_tags(value))
+                setattr(self, field, strip_tags(value))  # убирает весь HTML :<b>Hello</b> -> Hello, Нужен в тех полях, где пользователь может ввести HTML 

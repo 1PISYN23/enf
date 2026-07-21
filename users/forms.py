@@ -18,13 +18,13 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta:  # Напомни что делает класс Meta?
         model = User
-        fields = ("first_name", "last_name", "email", "password1", "password2")
+        fields = ("first_name", "last_name", "email", "password1", "password2")  # показывать только эти поля.
 
 
-    def clean_email(self):  # В чем прикол этого метода, если во view мы его не используем? 
-        email = self.cleaned_data.get("email")
-        if User.objects.filter(email=email).exists():
-            raise ValueError("This email is already in use.")
+    def clean_email(self):  # Встроенный метод в django, когда мы делаем form.is_valid().
+        email = self.cleaned_data.get("email")  # это берется очищенный email.
+        if User.objects.filter(email=email).exists():  # если такой email уже существует.
+            raise forms.ValidationError("This email is already in use.")
         return email
     
 
@@ -41,15 +41,15 @@ class CustomUserLoginFrom(AuthenticationForm):
     password = forms.CharField(label="Password", widget=forms.PasswordInput(attrs={"class": "dotted-input w-full py-3 text-sm font-medium text-gray-900 placeholder-gray-500", "placeholder": "PASSWORD"}))
 
 
-    def clean(self):  # Также объясни что делает метод? Также в чем прикол метода, если во view не используем? 
-        email = self.cleaned_data.get("username")  # к какому username обращается? Где он? 
-        password = self.cleaned_data.get("password")  # к какому password обращается? Где он? 
+    def clean(self):  # Вызывается автоматически когда form.is_valid()
+        email = self.cleaned_data.get("username")  
+        password = self.cleaned_data.get("password")  
 
         if email and password: 
             self.user_cache = authenticate(self.request, email=email, password=password)  # что значит это, как работает? 
             if self.user_cache is None:
-                raise forms.ValidationError("Invalid email or password")
-            elif not self.user_cache.is_active():
+                self.add_error("password", "Invalid email or password")
+            elif not self.user_cache.is_active:
                 raise forms.ValidationError("This account is inacive.")
         return self.cleaned_data
     
@@ -90,7 +90,7 @@ class CustomUserUpdateForm(forms.ModelForm):
         }
 
     
-    def clean_email(self):
+    def clean_email(self):  # если пользователь нажмет редактировать и потом ничего не меняя сохранить, то без переопределния этого метода будет ошибка.
         email = self.cleaned_data.get("email") 
         if email and User.objects.filter(email=email).exclude(id=self.instance.id).exists():  # Вот эту строчку объяснить? 
             raise forms.ValidationError("This email is already in use.")
@@ -99,9 +99,9 @@ class CustomUserUpdateForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()  # Почему тут через super а выше нет? 
-        if not cleaned_data:
-            cleaned_data["email"] = self.instance.email  # что значит?
+        if not cleaned_data.get("email"):
+            cleaned_data["email"] = self.instance.email  # instance = reqquest.user
         for field in ["company", "address1", "address2", "city", "country", "province", "postal_code", "phone"]:  # Почнму тут нету first_name, last_name, email? 
-            if cleaned_data.get[field]:
+            if cleaned_data.get(field):
                 cleaned_data[field] = strip_tags(cleaned_data[field])  # также что делает strip_tags? Что тут происходит? 
         return cleaned_data

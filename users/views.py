@@ -15,19 +15,19 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # что за backend? Тоже объясника 
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # Способ авторизации пользовыателя.  
             return redirect("main:index")
     else:
         form = CustomUserCreationForm()
     return render(request, "users/register.html", {"form": form})
 
 
-def login(request):
+def login_view(request):
     if request.method == "POST":
-        form = CustomUserLoginFrom(request=request, data=request.POST)  # Почему тут в атрибутах так, а в регистрации просто request.POST? 
+        form = CustomUserLoginFrom(request=request, data=request.POST)  # Почему тут в атрибутах так, а в регистрации просто request.POST? Потому что две разные формы где логин допом принимает request
         if form.is_valid():
             user = form.get_user()  # Это встроенный метод в Django, который просто берет user'a из бд? Или лучше поточнее объясни? 
-            login(request, user, backend="djangp.conrib.auth.backends.ModelBackend")
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             return redirect("main:index")
     else:
         form = CustomUserLoginFrom()
@@ -42,7 +42,7 @@ def profile_view(request):
             form.save()
             if request.headers.get("HX-Request"):
                 return HttpResponse(headers={"HX-Redirect": reverse("users:profile")})  # Почему HttpResponse, хотя до этого в main было постоянно TemplateResponse? И что за reverse? 
-            return redirect("users:profile")
+            return redirect("users:profile")  # reverse делает users/profile/. А HttpResponse отправляет заголовок для HTMX
     else:
         form = CustomUserUpdateForm(instance=request.user)
 
@@ -50,7 +50,7 @@ def profile_view(request):
     
     return TemplateResponse(request, "users/profile.html", {
         "form": form,
-        "user": request.user,  # почему передается request.user мы же по факту можем сделать user = CustomUser.objects.get(id=user_id) или через get_object_or_404, который укажем в url?
+        "user": request.user,  # был уде создан Middleware.
         "recommended_products": recommended_products
     })
 
@@ -83,7 +83,7 @@ def update_account_details(request):
         else:
             return TemplateResponse(request, "users/partials/edit_account_details.html", {"user": request.user, "form": form})
     if request.headers.get("HX-Request"):  # я так понимаю это для HTMX, то есть это без перезагрузки страницы
-        return HttpResponse(headers={"HX-Redirect": reverse("user:profile")})
+        return HttpResponse(headers={"HX-Redirect": reverse("users:profile")})
     return redirect("users:profile")  # а это для HTML, то есть с перезагруской страницы? И сверху также было? 
 
 
