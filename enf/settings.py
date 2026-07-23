@@ -35,8 +35,8 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'navoenfp.site', 'www.navoenfp.site']
 CSRF_TRUSTED_ORIGINS = [  # будет принимать запросы. 
     'http://127.0.0.1:8000',
     'http://localhost:8000',
-    'http://navoenfp.site',
-    'http://www.navoenfp.site',
+    'https://navoenfp.site',
+    'https://www.navoenfp.site',
 ]
 
 CSRF_COOKIE_SECURE = True
