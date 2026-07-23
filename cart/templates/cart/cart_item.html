@@ -15,7 +15,7 @@
         
         <!-- Product Info -->
         <div class="text-center">
-            <h3 class="font-bold text-sm">{{ item.product.name|upper }}</h3>  # откуда берется item? в каком context он укзаан? из цикла в cart_modal 
+            <h3 class="font-bold text-sm">{{ item.product.name|upper }}</h3>  {% comment %} # откуда берется item? в каком context он укзаан? из цикла в cart_modal  {% endcomment %}
             <p class="text-xs">COLOR {{ item.product.color|upper }}</p>
             <p class="text-xs">SIZE {{ item.product_size.size.name }}</p>
             <p class="font-bold mt-1">${{ item.product.price }}</p>
