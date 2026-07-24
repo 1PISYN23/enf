@@ -49,6 +49,8 @@ class AddToCartView(CartMixin, View):
         form = AddToCartForm(request.POST, product=product)
 
         if not form.is_valid():
+            print(form.errors)
+            print(request.POST)
             return JsonResponse({  # что значит JsonResponse и как он будет в дальнейшем использоваться? 
                 "error": "Invalid form data",
                 "errors": form.errors,

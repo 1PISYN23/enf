@@ -93,6 +93,7 @@
             <div class="space-y-4">
                 <button id="add-to-cart-btn" 
                         class="w-full bg-black text-white py-3 px-6 text-sm font-medium hover:bg-gray-800 transition-colors"
+                        data-slug="{{ product.slug }}"
                         onclick="addToCart()"
                         {% if not product.product_sizes.all %}disabled{% endif %}>
                     ADD TO CART
@@ -195,26 +196,20 @@
     }
 
     function addToCart() {
-        const productSlug = '{{ product.slug }}';
-        console.log('Product Slug:', productSlug);
-        
-        // Update selected size before sending
-        updateSelectedSize();
-        console.log('Selected Size ID:', selectedSizeId);
+        const productSlug =
+            document.getElementById("add-to-cart-btn").dataset.slug;
 
-        if (!selectedSizeId) {
-            showNotification('Please select a size');
-            return;
-        }
+        updateSelectedSize();
 
         let formData = new FormData();
-        formData.append('size_id', selectedSizeId);
-        formData.append('quantity', '1');
-        fetch(`{% url 'cart:add_to_cart' 'PLACEHOLDER' %}`.replace('PLACEHOLDER', productSlug), {
-            method: 'POST',
+        formData.append("size_id", selectedSizeId);
+        formData.append("quantity", "1");
+
+        fetch(`/cart/add/${productSlug}/`, {
+            method: "POST",
             body: formData,
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
+                "X-CSRFToken": getCookie("csrftoken")
             }
         })
         .then(response => {
