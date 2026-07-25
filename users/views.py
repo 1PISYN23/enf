@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
@@ -8,6 +8,7 @@ from .forms import CustomUserCreationForm, CustomUserLoginFrom, CustomUserUpdate
 from .models import CustomUser
 from django.contrib import messages
 from main.models import Product
+from orders.models import Order
 
 
 def register(request):
@@ -47,11 +48,15 @@ def profile_view(request):
         form = CustomUserUpdateForm(instance=request.user)
 
     recommended_products = Product.objects.all().order_by("id")[:3]
+    orders = Order.objects.filter(user=request.user).order_by("-created_at")[:3]
+    latest_order = Order.objects.last()
     
     return TemplateResponse(request, "users/profile.html", {
         "form": form,
         "user": request.user,  # был уде создан Middleware.
-        "recommended_products": recommended_products
+        "recommended_products": recommended_products,
+        "orders": orders,
+        "latest_order": latest_order,
     })
 
 
@@ -92,6 +97,18 @@ def logout_view(request):
     if request.headers.get("HX-Request"):
         return HttpResponse(headers={"HX-Redirect": reverse("main:index")})
     return redirect("main:index")
+
+
+@login_required
+def order_history(request):
+    orders = Order.objects.filter(user=request.user).order_by("-created_at")
+    return TemplateResponse(request, "users/partials/order_history.html", {"orders": orders})
+
+
+@login_required
+def order_detail(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    return TemplateResponse(request, "users/partials/order_detail.html", {"order": order})
 
 
 # Из-за того, что мы делаем на HTMX, то нам надо делать допольнительно account_details да? И если бы мы делали на обычном HTML, то account_details не надо было бы делать, 

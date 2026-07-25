@@ -13,6 +13,7 @@ class Order(models.Model):
     )
     PAYMENT_PROVIDER_CHOICES = (
         ("stripe", "Stripe"),
+        ("heleket", "Heleket"),
     )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders")  # Почему так а не через указание просто CustomUser? 
@@ -32,6 +33,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     payment_provider = models.CharField(max_length=20, choices=PAYMENT_PROVIDER_CHOICES, blank=True, null=True)
     stripe_payment_intend_id = models.CharField(max_length=255, blank=True, null=True)
+    heleket_payment_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

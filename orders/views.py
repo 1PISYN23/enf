@@ -12,7 +12,7 @@ from .models import Order, OrderItem
 from .forms import OrderForm
 from decimal import Decimal
 from cart.views import CartMixin
-from payment.views import create_stripe_checkout_session
+from payment.views import create_stripe_checkout_session, create_heleket_payment
 import logging
 
 logger = logging.getLogger(__name__)
@@ -110,13 +110,23 @@ class CheckoutView(CartMixin, View):
                 if payment_provider == "stripe":
                     logger.debug("Creating Stripe checkout session")
                     checkout_session = create_stripe_checkout_session(order, request)
-                    cart.clear()  # Почему делаем отчистку корзины, типо, если мы не оплатили, то из корзины товар пропадет
+                    # cart.clear()  # Почему делаем отчистку корзины, типо, если мы не оплатили, то из корзины товар пропадет
                     if request.headers.get("HX-Request"):
                         response = HttpResponse(status=200)
                         response["HX-Redirect"] = checkout_session.url  # Не понял
                         logger.info(f"HX-Redirect to Stripe: {checkout_session.url}")
                         return response
                     return redirect(checkout_session.url)
+                elif payment_provider == "heleket":
+                    logger.debug("Creating Heleket payment")
+                    payment = create_heleket_payment(order, request)
+                    cart.clear()
+                    if request.headers.get("HX-Request"):
+                        response = HttpResponse(status=200)
+                        response["HX-Redirect"] = payment["url"]
+                        logger.info(f"HX-Redirect to Heleket: {payment["url"]}")
+                        return response
+                    return redirect(payment["url"])
             except Exception as e:
                 logger.error(f"Error creating payment: {str(e)}", exc_info=True)
                 order.delete()

@@ -4,18 +4,21 @@ from django.template.response import TemplateResponse
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
 import json 
 import stripe 
 import requests
 import hashlib
 import base64
 from cart.views import CartMixin
-from orders.models import Order
+from orders.models import Order, OrderItem
 from decimal import Decimal
-
 
 # stripe listen --forward-to localhost:8000/payment/stripe/webhook/
 
+HELEKET_API_KEY = settings.HELEKET_API_KEY
+HELEKET_BASE_URL = "https://api.heleket.com/v1"
+HELEKET_SECRET_KEY = settings.HELEKET_SECRET_KEY
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe_endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
@@ -42,7 +45,7 @@ def create_stripe_checkout_session(order, request):
             line_items=line_items,
             mode="payment",
             success_url=request.build_absolute_uri("/payment/stripe/success/") + "?session_id={CHECKOUT_SESSION_ID}",  # Это что за конструкция? Встроенная? 
-            cancel_url=request.build_absolute_uri("/payment/stripe/cancel/") + f"order_id={order.id}",  # Это что за конструкция? Встроенная? 
+            cancel_url=request.build_absolute_uri("/payment/stripe/cancel/") + f"?order_id={order.id}",  # Это что за конструкция? Встроенная? 
             metadata={
                 "order_id": order.id,
             }
@@ -55,7 +58,7 @@ def create_stripe_checkout_session(order, request):
         raise
 
 
-@csrf_exempt
+@csrf_exempt  # для чего? 
 @require_POST
 def stripe_webhook(request):  # WEBHOOK нужен для того чтобы понять оплатил пользователь заказ или нет; КОРОЧЕ ОБЪЯСНИТЬ ВЕСЬ МЕТОД.
     payload = request.body  
@@ -85,6 +88,7 @@ def stripe_webhook(request):  # WEBHOOK нужен для того чтобы п
     return HttpResponse(status=200)
 
 
+@transaction.atomic
 def stripe_success(request):
     session_id = request.GET.get("session_id")  # Это просто сессия пользователя, которая создается через Middleware?
     if session_id:
@@ -93,6 +97,11 @@ def stripe_success(request):
             order_id = session.metadata["order_id"]
             order = get_object_or_404(Order, id=order_id)
 
+            orderItem = OrderItem.objects.filter(order=order)
+            for item in orderItem:
+                if item.size: 
+                    item.size.stock -= item.quantity
+                    item.size.save()
             cart = CartMixin().get_cart(request)
             cart.clear()
 
@@ -115,4 +124,133 @@ def stripe_cancel(request):
         if request.headers.get("HX-Request"):
             return TemplateResponse(request, "payment/stripe_cancel_content.html", context)  # почему тут два разных шаблона?
         return render(request, "payment/stripe_cancel.html", context)
+    return redirect("orders:checkout")
+
+
+def create_heleket_payment(order, request):
+    cart = CartMixin().get_cart(request)
+
+    amount_str = f"{order.total_price:.2f}"
+    payload = {
+        "amount": amount_str,
+        "currency": "USDT",
+        "order_id": str(order.id),
+        "callback_url": request.build_absolute_uri("payment/heleket/webhook/"),  # объяснить метод build.
+        "description": f"Order #{order.id}",
+        "convert_to": "USDT",
+    }
+
+    payload_str = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    encoded_payload = base64.b64encode(payload_str.encode("utf-8")).decode("utf-8")
+    sign = hashlib.md5((encoded_payload + HELEKET_SECRET_KEY).encode("utf-8")).hexdigest()
+
+    headers = {
+        "merchant": HELEKET_API_KEY,
+        "sign": sign,
+        "Content-Type": "application/json",
+    }
+
+    try:  # объЯСнить все что тут.
+        response = requests.post(f"{HELEKET_BASE_URL}/payment", headers=headers, data=payload_str)
+        if response.status_code == 200:
+            paymnent = response.json()
+            if paymnent.get("state") == 0:
+                order.heleket_payment_id = paymnent.get("result", {}).get("uuid")
+                order.payment_provider = "heleket"
+                order.save()
+                return paymnent["result"]
+            else:
+                raise Exception(f"Error creating Heleket payment: response={response.text}")
+        else:
+            raise Exception(f"Heleket API error: {response.text}")
+    except Exception as e:
+        raise
+
+
+@csrf_exempt
+@require_POST
+def heleket_webhook(request):  # объясника для чего также webhook и что тут происходит
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    try:
+        signature = request.headers.get("sign")
+        payload = request.body.decode("utf-8")
+        encoded_payload = base64.b64encode(payload.encode("utf-8")).decode("utf-8")
+        expected = hashlib.md5((encoded_payload + HELEKET_SECRET_KEY).encode("utf-8")).hexdigest()
+
+        if not signature == expected:
+            return HttpResponseBadRequest("Invalid signature")
+
+        data = json.loads(payload)
+        payment_id = data.get("result", {}).get("uuid")
+        status = data.get("result", {}).get("payment_status")
+        order_id = data.get("result", {}).get("order_id")
+
+        if not order_id:
+            return HttpResponseBadRequest("Missing order_id")
+
+        try:
+            order = Order.objects.select_for_update().get(id=order_id)  # объяснить 
+        except Order.DoesNotExist:
+            return HttpResponseBadRequest("Order not found")
+
+        if status == "paid":
+            if order.status == "completed":
+                return HttpResponse(status=200)
+
+            order.status = "completed"
+            order.heleket_payment_id = payment_id
+            order.save()
+        elif status == ["fail", "cancel", "system_fail", "wrong_amount", "refund_fail"]:
+            if status == "cancel":
+                return HttpResponse(status=200)
+
+            order.status = "cancelled"
+            order.save()
+
+        return HttpResponse(status=200)
+    except json.JSONDecodeError as e:
+        return HttpResponseBadRequest("Invalid JSON")
+    except Exception as e:
+        return HttpResponse(status=500) 
+
+
+def heleket_success(request):
+    order_id = request.GET.get("order_id")
+    if order_id:
+        try:
+            order = get_object_or_404(Order, id=order_id)
+
+            if order.status == "completed":  
+                cart = CartMixin().get_cart(request)
+                cart.clear()
+
+                context = {"order": order}
+                if request.headers.get("HX-Request"):
+                    return TemplateResponse(request, "payment/heleket_success_content.html", context)
+                return render(request, "payment/heleket_success.html", context)
+            elif order.status == "cancelled":
+                return redirect("payment:heleket_cancel")
+
+            context = {"order": order}
+            if request.headers.get("HX-Request"):
+                return TemplateResponse(request, "payment/heleket_pending_content.html", context)
+            return render(request, "payment/heleket_pending.html", context)
+        except Exception as e:
+            raise
+
+    return redirect("orders:checkout")
+
+
+def heleket_cancel(request):
+    order_id = request.GET.get("order_id")  # в каком моменте он создается? 
+    if order_id:
+        order = get_object_or_404(Order, id=order_id)       
+        order.status = "cancelled"  # почему дублируем?
+        order.save()
+        context = {"order": order}
+        if request.headers.get("HX-Request"):
+            return TemplateResponse(request, "payment/heleket_cancel_content.html", context)
+        return render(request, "payment/heleket_cancel.html", context)
     return redirect("orders:checkout")
