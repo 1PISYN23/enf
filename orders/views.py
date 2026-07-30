@@ -37,8 +37,7 @@ class CheckoutView(CartMixin, View):
         context = {
             "form": form,
             "cart": cart,
-            "cart_items": cart.items.select_related("product", "product_size__size").order_by("-added_at"),  # напомни эту строчку, я помню, что select_related это join, но как тут что происходит? Типо почему мы не делаем  Cart.items.all(), по факту мы же из опр. корзины возьмем просто все товары.
-            "total_price": total_price,
+            "cart_items": cart.items.select_related("product", "product_size__size").order_by("-added_at"),  
         }
 
         if request.headers.get("HX-Request"):
@@ -48,7 +47,7 @@ class CheckoutView(CartMixin, View):
 
     def post(self, request):
         cart = self.get_cart(request)
-        payment_provider = request.POST.get("payment_provider")  # А как payment_provider передается в request? Как? 
+        payment_provider = request.POST.get("payment_provider")  # А как payment_provider передается в request? 
         logger.debug(f"Checkout POST: session_key={request.session.session_key}, cart_id={cart.id}, total_items={cart.total_items}, payment_provider={payment_provider}")
 
         if cart.total_items == 0:
@@ -77,7 +76,7 @@ class CheckoutView(CartMixin, View):
         form = OrderForm(form_data, user=request.user)
         
         if form.is_valid():
-            order = Order.objects.create(  # Почему так если например в users мы вызывали form.save(), а не через модель? 
+            order = Order.objects.create(  # Почему так?
                 user=request.user,
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],

@@ -16,7 +16,7 @@ class CustomUserCreationForm(UserCreationForm):
     password2 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={"class": "dotted-input w-full py-3 text-sm font-medium text-gray-900 placeholder-gray-500", "placeholder": "CONFIRM PASSWORD"})) 
 
 
-    class Meta:  # Напомни что делает класс Meta?
+    class Meta:  
         model = User
         fields = ("first_name", "last_name", "email", "password1", "password2")  # показывать только эти поля.
 
@@ -28,7 +28,7 @@ class CustomUserCreationForm(UserCreationForm):
         return email
     
 
-    def save(self, commit=True):  # Объясни что тут происходит? 
+    def save(self, commit=True):  
         user = super().save(commit=False)
         user.username = None
         if commit:
@@ -92,7 +92,7 @@ class CustomUserUpdateForm(forms.ModelForm):
     
     def clean_email(self):  # если пользователь нажмет редактировать и потом ничего не меняя сохранить, то без переопределния этого метода будет ошибка.
         email = self.cleaned_data.get("email") 
-        if email and User.objects.filter(email=email).exclude(id=self.instance.id).exists():  # Вот эту строчку объяснить? 
+        if email and User.objects.filter(email=email).exclude(id=self.instance.id).exists():  
             raise forms.ValidationError("This email is already in use.")
         return email
     
@@ -101,7 +101,7 @@ class CustomUserUpdateForm(forms.ModelForm):
         cleaned_data = super().clean()  # Почему тут через super а выше нет? 
         if not cleaned_data.get("email"):
             cleaned_data["email"] = self.instance.email  # instance = reqquest.user
-        for field in ["company", "address1", "address2", "city", "country", "province", "postal_code", "phone"]:  # Почнму тут нету first_name, last_name, email? 
+        for field in ["company", "address1", "address2", "city", "country", "province", "postal_code", "phone"]:  
             if cleaned_data.get(field):
-                cleaned_data[field] = strip_tags(cleaned_data[field])  # также что делает strip_tags? Что тут происходит? 
+                cleaned_data[field] = strip_tags(cleaned_data[field])  
         return cleaned_data

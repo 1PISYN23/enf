@@ -21,7 +21,7 @@ class AddToCartForm(forms.Form):
                 )
 
 
-class UpdateCartItemForm(forms.ModelForm):  # Как она используется если мы ее во views не передаем и там не используем? 
+class UpdateCartItemForm(forms.ModelForm):  
     class Meta:
         model = CartItem
         fields = ["quantity"]

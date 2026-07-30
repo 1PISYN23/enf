@@ -60,10 +60,10 @@ def create_stripe_checkout_session(order, request):
 
 @csrf_exempt  # для чего? 
 @require_POST
-def stripe_webhook(request):  # WEBHOOK нужен для того чтобы понять оплатил пользователь заказ или нет; КОРОЧЕ ОБЪЯСНИТЬ ВЕСЬ МЕТОД.
+def stripe_webhook(request):  # WEBHOOK нужен для того чтобы понять оплатил пользователь заказ или нет;
     payload = request.body  
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
-    event = None
+    event = None    
 
     try:
         event = stripe.Webhook.construct_event(
@@ -90,7 +90,7 @@ def stripe_webhook(request):  # WEBHOOK нужен для того чтобы п
 
 @transaction.atomic
 def stripe_success(request):
-    session_id = request.GET.get("session_id")  # Это просто сессия пользователя, которая создается через Middleware?
+    session_id = request.GET.get("session_id")  
     if session_id:
         try:
             session = stripe.checkout.Session.retrieve(session_id)
@@ -118,11 +118,11 @@ def stripe_cancel(request):
     order_id = request.GET.get("order_id")  # Вопрос почему тут через request, а в success через session? И где создается order_id в запросе?
     if order_id:
         order = get_object_or_404(Order, id=order_id)
-        order.status = "cancelled"  # Почему в success не указывали что успешно? 
+        order.status = "cancelled"  
         order.save()
         context = {"order": order}
         if request.headers.get("HX-Request"):
-            return TemplateResponse(request, "payment/stripe_cancel_content.html", context)  # почему тут два разных шаблона?
+            return TemplateResponse(request, "payment/stripe_cancel_content.html", context) 
         return render(request, "payment/stripe_cancel.html", context)
     return redirect("orders:checkout")
 
@@ -169,7 +169,7 @@ def create_heleket_payment(order, request):
 
 @csrf_exempt
 @require_POST
-def heleket_webhook(request):  # объясника для чего также webhook и что тут происходит
+def heleket_webhook(request): 
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
