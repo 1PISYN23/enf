@@ -25,9 +25,9 @@ def register(request):
 
 def login_view(request):
     if request.method == "POST":
-        form = CustomUserLoginFrom(request=request, data=request.POST)  # Почему тут в атрибутах так, а в регистрации просто request.POST? Потому что две разные формы где логин допом принимает request
+        form = CustomUserLoginFrom(request=request, data=request.POST)  
         if form.is_valid():
-            user = form.get_user()  # Это встроенный метод в Django, который просто берет user'a из бд? Или лучше поточнее объясни? 
+            user = form.get_user()  # Это встроенный метод в Django, который просто берет user'a из бд? 
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             return redirect("main:index")
     else:
@@ -38,12 +38,12 @@ def login_view(request):
 @login_required(login_url="/users/login")
 def profile_view(request):
     if request.method == "POST":
-        form = CustomUserUpdateForm(request.POST, instance=request.user)  # instance для того, чтобы загурзить инфу о пользователе? и что за request.user? откуда мы его берем? 
+        form = CustomUserUpdateForm(request.POST, instance=request.user)  
         if form.is_valid():
             form.save()
             if request.headers.get("HX-Request"):
-                return HttpResponse(headers={"HX-Redirect": reverse("users:profile")})  # Почему HttpResponse, хотя до этого в main было постоянно TemplateResponse? И что за reverse? 
-            return redirect("users:profile")  # reverse делает users/profile/. А HttpResponse отправляет заголовок для HTMX
+                return HttpResponse(headers={"HX-Redirect": reverse("users:profile")}) 
+            return redirect("users:profile") 
     else:
         form = CustomUserUpdateForm(instance=request.user)
 
@@ -53,7 +53,7 @@ def profile_view(request):
     
     return TemplateResponse(request, "users/profile.html", {
         "form": form,
-        "user": request.user,  # был уде создан Middleware.
+        "user": request.user,  
         "recommended_products": recommended_products,
         "orders": orders,
         "latest_order": latest_order,
@@ -77,7 +77,7 @@ def update_account_details(request):
     if request.method == "POST":
         form = CustomUserUpdateForm(request.POST, instance=request.user)
         if form.is_valid():
-            user = form.save(commit=False)  # Как мы вызываем метод save(), если его мы прописывали только в CreationForms?
+            user = form.save(commit=False)  
             user.clean()
             user.save()
             updated_user = CustomUser.objects.get(id=user.id)
@@ -87,9 +87,9 @@ def update_account_details(request):
             return TemplateResponse(request, "users/partials/account_details.html", {"user": updated_user})
         else:
             return TemplateResponse(request, "users/partials/edit_account_details.html", {"user": request.user, "form": form})
-    if request.headers.get("HX-Request"):  # я так понимаю это для HTMX, то есть это без перезагрузки страницы
+    if request.headers.get("HX-Request"): 
         return HttpResponse(headers={"HX-Redirect": reverse("users:profile")})
-    return redirect("users:profile")  # а это для HTML, то есть с перезагруской страницы? И сверху также было? 
+    return redirect("users:profile") 
 
 
 def logout_view(request):
@@ -111,5 +111,3 @@ def order_detail(request, order_id):
     return TemplateResponse(request, "users/partials/order_detail.html", {"order": order})
 
 
-# Из-за того, что мы делаем на HTMX, то нам надо делать допольнительно account_details да? И если бы мы делали на обычном HTML, то account_details не надо было бы делать, 
-# а просто из edit_account_details сделали бы редирект на profile.html? 
